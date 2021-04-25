@@ -29,22 +29,23 @@ const char guineapig_wifi_config_html[] PROGMEM = R"====(
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
     <style>
-        body { width: 240px; }
+        body { width: 240px; font-family: '微軟正黑體' }
         input, div { width: 100%; margin: 6px; font-size: 16pt; }
         #dvStatus { font-size: 14pt; color: dodgerblue; }
     </style>
 </head>
 <body>
-<div style='text-align:center'>WiFi Setting<div>
+<div style='text-align:center'>無線網路設定<div>
 <form action="/" method="POST" target='submitRes'>
 <input name="ssid" placeholder="SSID" />
-<input type="password" name="passwd" placeholder="Password" />
-<input type="submit" value="Save" id=btnSave />
-<input type="button" value="Reboot" disabled id=btnReboot onclick='reboot()' />
+<input type="password" name="passwd" placeholder="請輸入密碼" />
+<input type="submit" name="action" value="儲存設定" id=btnSave />
+<input type="submit" name="action" value="重新啟動" disabled id=btnReboot />
 </form>
-<iframe name='submitRes' id=frmSubmit style='display:none'></iframe>
+<iframe name='submitRes' style='display:none'></iframe>
 <div id=dvStatus></div>
 <script>
 var xhr = new XMLHttpRequest();
@@ -59,9 +60,6 @@ xhr.addEventListener("load", function() {
         clearInterval(hnd);
     }
 });
-function reboot() { 
-    document.getElementById('frmSubmit').src = '/reboot'; 
-}
 var hnd = setInterval(function() { 
     xhr.open("GET", "http://" + location.host + "/status");
     xhr.send(); 

@@ -32,20 +32,22 @@ void GuineapigWiFiConfig::initConfigWeb()
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send_P(200, "text/html", guineapig_wifi_config_html);
     });
-    String ssid(""), passwd(""), phase("WAIT"), message("Please setup SSID & password.");
-    server.on("/", HTTP_POST, [&ssid, &passwd, &phase, &message](AsyncWebServerRequest *request) {
-        ssid = (*request->getParam("ssid", true)).value();
-        passwd = (*request->getParam("passwd", true)).value();
-        message = "Connecting [" + ssid + "]...";
-        phase = "CONNECTING";
-    });
+    String ssid(""), passwd(""), phase("WAIT"), message("請設定 SSID 與密碼");
     bool reboot = false;
+    server.on("/", HTTP_POST, [&ssid, &passwd, &phase, &message, &reboot](AsyncWebServerRequest *request) {
+        if ((*request->getParam("action", true)).value() == "重新啟動") {
+            reboot = true;
+        }
+        else {
+            ssid = (*request->getParam("ssid", true)).value();
+            passwd = (*request->getParam("passwd", true)).value();
+            message = "正在測試 [" + ssid + "] 無線網路...";
+            phase = "CONNECTING";
+        }
+        request->send(200, "text/plain", "OK");
+    });
     server.on("/status", HTTP_GET, [&phase, &message](AsyncWebServerRequest *request) {
         request->send(200, "application/json", "{ \"p\":\"" + phase + "\", \"m\":\"" + message + "\" }");
-    });
-    server.on("/reboot", HTTP_GET, [&reboot](AsyncWebServerRequest *request) {
-        reboot = true;
-        request->send_P(200, "text/html", "OK");
     });
 
     this->printlnLog("AP Mode <" + apSsid + ">");
@@ -62,7 +64,7 @@ void GuineapigWiFiConfig::initConfigWeb()
         if (phase == "CONNECTING")
         {
             WiFi.begin(ssid.c_str(), passwd.c_str());
-            this->printlnLog(message);
+            this->printlnLog("connecting [" + ssid + "] ");
             int timeout = 30;
             while (WiFi.status() != WL_CONNECTED && timeout-- > 0)
             {
@@ -76,21 +78,21 @@ void GuineapigWiFiConfig::initConfigWeb()
                 wifiIp = WiFi.localIP().toString();
                 this->printlnLog("IP=" + wifiIp);
                 phase = "CONNECTED";
-                message = "[" + ssid + "] connected. <br />" + wifiIp;
+                message = "[" + ssid + "]連線成功<br />IP " + wifiIp + "<br />重新啟動後生效";
             }
             else
             {
                 this->printlnLog(ssid + " not connected");
                 phase = "FAILED";
-                message = "Failed to connect [" + ssid + "]";
+                message = "[" + ssid + "]連線失敗<br />請重新輸入";
             }
         }
         if (reboot)
         {
             phase = "REBOOT";
-            message = "Rebooting...<br /> Change your WiFi network <br />and visit <a href=http://" + wifiIp + ">http://" + wifiIp + "</a> latter.";
+            message = "ESP 正在重新啟動...<br />稍後請切換網路改用<br /><a href=http://" + wifiIp + ">http://" + wifiIp + "</a> 操作";
             delay(5000);
-            ESP.restart();            
+            ESP.restart();
         }
         digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
         delay(200);
@@ -153,7 +155,6 @@ bool GuineapigWiFiConfig::tryConnect()
 
 bool GuineapigWiFiConfig::connectWiFi()
 {
-    Serial.begin(115200);
     delay(2000);
     this->printlnLog("Guineapig WiFiConfig");
     pinMode(LED_BUILTIN, OUTPUT);
