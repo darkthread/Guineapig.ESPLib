@@ -13,19 +13,14 @@ public:
     bool connectWiFi();
     typedef void (*LogCallback)(String);    
     LogCallback logCallback;
-    void resetWiFiConfig();
-    String Ip2String(const IPAddress& ip) {
-        return String(ip[0]) + "." + String(ip[1]) + "." +
-            String(ip[2]) + "." + String(ip[3]);
-    }    
+    void clearWiFiConfig();
 
 private:
     void printLog(String msg);
     void printlnLog(String msg) { printLog(msg + "\n"); }
     void printlnLog() { printlnLog(""); }
     bool tryConnect();
-    void initSetupWeb();
-
+    void initSetupWeb();   
 };
 
 extern GuineapigWiFiConfig WiFiConfig;

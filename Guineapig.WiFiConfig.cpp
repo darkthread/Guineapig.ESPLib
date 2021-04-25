@@ -7,8 +7,6 @@
 #include <WiFi.h>
 #endif
 #include "Guineapig.WiFiConfig.h"
-#include <EEPROM.h>
-#define EEPROM_SIZE 64
 
 void GuineapigWiFiConfig::printLog(String msg)
 {
@@ -42,13 +40,38 @@ void GuineapigWiFiConfig::initSetupWeb()
     server.on("/", HTTP_POST, [&ssid, &passwd](AsyncWebServerRequest *request) {
         ssid = (*request->getParam("ssid", true)).value();
         passwd = (*request->getParam("passwd", true)).value();
-        request->send(200, "text/plain", "Rebooting");
+        request->redirect("/pending");
+    });
+    String wifiIp("");
+    String viewPortHeader = F("<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>");
+    server.on("/pending", HTTP_GET, [&wifiIp, &viewPortHeader](AsyncWebServerRequest *request) {
+        if (wifiIp == "timeout")
+        {
+            wifiIp = "";
+            request->redirect("/?failed");
+            return;
+        }
+        String html = viewPortHeader;
+        if (wifiIp == "")
+            html += "Waiting... <script>setTimeout(function() { location.reload(); }, 2000);</script></body></html>";
+        else
+        {
+            html += F("Please connect http://");
+            html += wifiIp;
+            html += " after reboot. <br /><a href=/reboot>Reboot</a></body></html>";
+        }
+        request->send(200, "text/html", html);
+    });
+    bool reboot = false;
+    server.on("/reboot", HTTP_GET, [&reboot](AsyncWebServerRequest *request) {
+        reboot = true;
+        request->send(200, "text/html", F("<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>Rebooting...</body></html>"));
     });
 
     this->printLog("AP Mode <");
     this->printLog(apSsid);
     this->printlnLog(">");
-    String ipStr = this->Ip2String(apIp);
+    String ipStr = apIp.toString();
     this->printlnLog("IP=" + ipStr);
     this->printlnLog();
     server.begin();
@@ -59,60 +82,62 @@ void GuineapigWiFiConfig::initSetupWeb()
     {
         if (ssid != "" && passwd != "")
         {
-            EEPROM.begin(EEPROM_SIZE);
-            String ssidPwd = String("\t") + ssid + "\t" + passwd;
-            for (int i = 0; i < ssidPwd.length() && i < EEPROM_SIZE; i++)
+            WiFi.begin(ssid.c_str(), passwd.c_str());
+            this->printlnLog("connecting " + ssid);
+            int timeout = 30;
+            while (WiFi.status() != WL_CONNECTED && timeout-- > 0)
             {
-                EEPROM.write(i, ssidPwd[i]);
+                this->printLog(".");
+                delay(1000);
             }
-            EEPROM.write(ssidPwd.length(), 0);
-            EEPROM.commit();
-            this->printlnLog("ESP is rebooting...");
+            this->printlnLog();
+            if (timeout > 0)
+            {
+                this->printlnLog("connected.");
+                wifiIp = WiFi.localIP().toString();
+                this->printlnLog("IP=" + wifiIp);
+                ssid = "";
+            }
+            else
+            {
+                this->printlnLog(ssid + " not connected");
+                wifiIp = "timeout";
+                ssid = "";
+            }
+        }
+        if (reboot)
+        {
             ESP.restart();
         }
         digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
-        delay(500);
+        delay(200);
     }
 }
+const char* ESP32_WIFI_CONF = "ESP32-WIFI-CONF";
 
 bool GuineapigWiFiConfig::tryConnect()
 {
     String ssid = WiFi.SSID();
     String pwd = WiFi.psk();
-    //check EEPROM for new ssid and password
-    EEPROM.begin(EEPROM_SIZE);
-    if (EEPROM.read(0) == '\t')
-    {
-        this->printlnLog("Reading WiFi config");
-        String ssidPwd;
-        for (int i = 1; i < EEPROM_SIZE; i++)
-        {
-            char c = EEPROM.read(i);
-            if (c == 0) break;
-            ssidPwd += c;
-        }
-        int pos = ssidPwd.indexOf('\t');
-        if (pos <= 0)
-        {
-            this->printlnLog("invalid WiFi config");
-        }
-        else
-        {
-            ssid = ssidPwd.substring(0, pos);
-            this->printlnLog("SSID=" + ssid);
-            pwd = ssidPwd.substring(pos + 1, ssidPwd.length());
-        }
-    }
+#ifdef ESP32
+    ssid = ESP32_WIFI_CONF;
+#endif    
+
     this->printlnLog();
     int timeoutCount = 100; //connection timeout = 10s
     bool connected = false;
     //flash the LED
     pinMode(LED_BUILTIN, OUTPUT);
     bool onOff = true;
-    if (ssid != "" && pwd != "")
+    if (ssid == ESP32_WIFI_CONF || ssid != "" && pwd != "")
     {
+#ifdef ESP32 
+        this->printlnLog(String("Connecting stored SSID "));
+        WiFi.begin();
+#else        
         this->printLog(String("Conneting ") + ssid + " ");
         WiFi.begin(ssid.c_str(), pwd.c_str());
+#endif
         while (WiFi.status() != WL_CONNECTED && timeoutCount > 0)
         {
             this->printLog(".");
@@ -136,7 +161,7 @@ bool GuineapigWiFiConfig::tryConnect()
         this->printlnLog();
         this->printlnLog("SSID=>" + ssid);
         this->printLog("IP=>");
-        this->printlnLog(this->Ip2String(WiFi.localIP()));
+        this->printlnLog(WiFi.localIP().toString());
         this->printlnLog();
         return true;
     }
@@ -151,14 +176,15 @@ bool GuineapigWiFiConfig::connectWiFi()
     return tryConnect();
 }
 
-void GuineapigWiFiConfig::resetWiFiConfig()
-{
-    EEPROM.begin(EEPROM_SIZE);
-    for (int i = 0; i < EEPROM_SIZE; i++)
-        EEPROM.write(i, 0);
-    EEPROM.commit();
-    WiFi.disconnect();
+void GuineapigWiFiConfig::clearWiFiConfig() {
+#ifdef ESP32    
+    WiFi.disconnect(true, true);
+#else
+    WiFi.disconnect(true);
+#endif
+    delay(1000);
     ESP.restart();
 }
+
 
 GuineapigWiFiConfig WiFiConfig;
