@@ -32,21 +32,23 @@ const char guineapig_wifi_config_html[] PROGMEM = R"====(
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8" />
     <style>
-        body { width: 240px; font-family: '微軟正黑體' }
-        input, div { width: 100%; margin: 6px; font-size: 16pt; }
+        .content { width: 240px; margin: 0 auto; font-size: 16pt; font-family: '微軟正黑體' }
+        form > * { width: 95%; margin: 6px auto;  }
         #dvStatus { font-size: 14pt; color: dodgerblue; }
     </style>
 </head>
 <body>
-<div style='text-align:center'>無線網路設定<div>
-<form action="/" method="POST" target='submitRes'>
-<input name="ssid" placeholder="SSID" />
-<input type="password" name="passwd" placeholder="請輸入密碼" />
-<input type="submit" name="action" value="儲存設定" id=btnSave />
-<input type="submit" name="action" value="重新啟動" disabled id=btnReboot />
-</form>
-<iframe name='submitRes' style='display:none'></iframe>
-<div id=dvStatus></div>
+<div class=content>
+    <div style='text-align:center'>無線網路設定<div>
+    <form action="/" method="POST" target='submitRes'>
+    <input name="ssid" placeholder="SSID" />
+    <input type="password" name="passwd" placeholder="請輸入密碼" />
+    <input type="submit" name="action" value="儲存設定" id=btnSave />
+    <input type="submit" name="action" value="重新啟動" disabled id=btnReboot />
+    </form>
+    <iframe name='submitRes' style='display:none'></iframe>
+    <div id=dvStatus></div>
+</div>
 <script>
 var xhr = new XMLHttpRequest();
 xhr.addEventListener("load", function() {
