@@ -20,7 +20,7 @@ private:
     void printlnLog(String msg) { printLog(msg + "\n"); }
     void printlnLog() { printlnLog(""); }
     bool tryConnect();
-    void initSetupWeb();   
+    void initConfigWeb();   
 };
 
 extern GuineapigWiFiConfig WiFiConfig;
@@ -31,17 +31,42 @@ const char guineapig_wifi_config_html[] PROGMEM = R"====(
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { width: 180px; }
+        body { width: 240px; }
         input, div { width: 100%; margin: 6px; font-size: 16pt; }
+        #dvStatus { font-size: 14pt; color: dodgerblue; }
     </style>
 </head>
 <body>
-<div>Setup WiFi<div>
-<form action="/" method="POST">
+<div style='text-align:center'>WiFi Setting<div>
+<form action="/" method="POST" target='submitRes'>
 <input name="ssid" placeholder="SSID" />
 <input type="password" name="passwd" placeholder="Password" />
-<input type="submit" value="Save &amp; Reset" />
+<input type="submit" value="Save" id=btnSave />
+<input type="button" value="Reboot" disabled id=btnReboot onclick='reboot()' />
 </form>
+<iframe name='submitRes' id=frmSubmit style='display:none'></iframe>
+<div id=dvStatus></div>
+<script>
+var xhr = new XMLHttpRequest();
+xhr.addEventListener("load", function() {
+    var res = JSON.parse(this.responseText);
+    document.getElementById('dvStatus').innerHTML = res.m;
+    if (res.p == "CONNECTED") {
+        document.getElementById('btnSave').disabled = true;
+        document.getElementById('btnReboot').disabled = false;
+    }
+    else if (res.p == "REBOOT") {
+        clearInterval(hnd);
+    }
+});
+function reboot() { 
+    document.getElementById('frmSubmit').src = '/reboot'; 
+}
+var hnd = setInterval(function() { 
+    xhr.open("GET", "http://" + location.host + "/status");
+    xhr.send(); 
+}, 1000);
+</script>
 </body></html>
 )====";
 
