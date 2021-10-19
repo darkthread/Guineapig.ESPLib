@@ -112,9 +112,9 @@ void GuineapigWiFiSerConf::loop()
         {
             phase = 0;
             Serial.println("** WiFi Config Mode **");
-            int len = strlen_P(GuineapigWiFiSerConf_Logo);
+            int len = strlen_P(GuineapigWiFiSerConf_Info);
             for (int i = 0; i < len; i++) {
-                char c = pgm_read_byte_near(GuineapigWiFiSerConf_Logo + i);
+                char c = pgm_read_byte_near(GuineapigWiFiSerConf_Info + i);
                 Serial.print(c);
             }
             if (WiFi.status() == WL_CONNECTED) {
@@ -123,10 +123,6 @@ void GuineapigWiFiSerConf::loop()
             else {
                 Serial.println("Wireless network not connected");
             }
-            Serial.println("'SET SSID', 'SET PASS' to set AP identity,");
-            Serial.println("'CONNECT' to connect AP");
-            Serial.println("'RESET' to clear WiFi settings");
-            Serial.println("'EXIT' to quit config mode.");
         }
         delay(50);
     }
